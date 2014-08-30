@@ -39,11 +39,16 @@ func display_map(mapchan chan string, board_size int) {
 	for {
 		board_repr := <- mapchan
 		start := 0
+		fmt.Printf("|")
+		for i := 0; i < (board_size*2)+2; i++ { fmt.Print("-") }
+		fmt.Printf("|\n")
 		for start < len(board_repr) {
-			//fmt.Println("Slicing from ", start, " to ", 
-			fmt.Println(board_repr[start:start+board_size*2])
+			fmt.Println("|", board_repr[start:start+board_size*2], "|")
 			start += board_size*2
 		}
+		fmt.Printf("|")
+		for i := 0; i < (board_size*2)+2; i++ { fmt.Print("-") }
+		fmt.Printf("|\n")
 	}
 }
 

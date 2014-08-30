@@ -31,6 +31,7 @@ type Client struct {
 	Url string
 
 	Debug bool
+	DebugMap bool
 	Display_map_chan chan string
 	Display_map_started bool
 }
@@ -52,7 +53,7 @@ func display_map(mapchan chan string, board_size int) {
 	}
 }
 
-func NewClient(server, key, mode, turns string, randomMap bool, debug bool, bot Bot) (client *Client) {
+func NewClient(server, key, mode, turns string, randomMap bool, debug bool, debug_map bool, bot Bot) (client *Client) {
 	client = &Client{
 		Server: server,
 		Key: key,
@@ -60,7 +61,8 @@ func NewClient(server, key, mode, turns string, randomMap bool, debug bool, bot 
 		Bot: bot,
 		Turns: turns,
 		RandomMap: randomMap,
-		Debug: false,
+		Debug: debug,
+		DebugMap: debug_map,
 		Display_map_chan: make(chan string),
 		Display_map_started: false,
 	}
@@ -68,13 +70,13 @@ func NewClient(server, key, mode, turns string, randomMap bool, debug bool, bot 
 	return
 }
 
-func NewTrainingClient(key, turns string, randomMap bool, debug bool, bot Bot) (client *Client) {
-	client = NewClient("http://vindinium.org", key, "training", turns, randomMap, debug, bot)
+func NewTrainingClient(key, turns string, randomMap bool, debug bool, debug_map bool, bot Bot) (client *Client) {
+	client = NewClient("http://vindinium.org", key, "training", turns, randomMap, debug, debug_map, bot)
 	return
 }
 
-func NewArenaClient(key, turns string, randomMap bool, debug bool, bot Bot) (client *Client) {
-	client = NewClient("http://vindinium.org", key, "arena", turns, randomMap, debug, bot)
+func NewArenaClient(key, turns string, randomMap bool, debug bool, debug_map bool, bot Bot) (client *Client) {
+	client = NewClient("http://vindinium.org", key, "arena", turns, randomMap, debug, debug_map, bot)
 	return
 }
 
@@ -109,7 +111,7 @@ func (c *Client) post(uri string, values url.Values, seconds int) error {
 		return err
 	}
 
-	if c.Display_map_started {
+	if c.Display_map_started && c.DebugMap {
 		c.Display_map_chan <- c.State.Game.Board.Tiles
 	}
 
@@ -142,7 +144,7 @@ func (c *Client) Start() error {
 
 	fmt.Println("Connecting and waiting for other players to join...")
 	err := c.post(c.Url, values, StartTimeout)
-	if !c.Display_map_started {
+	if !c.Display_map_started && c.DebugMap {
 		go display_map(c.Display_map_chan, c.State.Game.Board.Size)
 		c.Display_map_started = true
 	}

@@ -32,12 +32,18 @@ type Client struct {
 
 	Debug bool
 	Display_map_chan chan string
+	Display_map_started bool
 }
 
 func display_map(mapchan chan string, board_size int) {
 	for {
 		board_repr := <- mapchan
-		fmt.Println(board_repr)
+		start := 0
+		for start < len(board_repr) {
+			//fmt.Println("Slicing from ", start, " to ", 
+			fmt.Println(board_repr[start:start+board_size*2])
+			start += board_size*2
+		}
 	}
 }
 
@@ -51,6 +57,7 @@ func NewClient(server, key, mode, turns string, randomMap bool, debug bool, bot 
 		RandomMap: randomMap,
 		Debug: false,
 		Display_map_chan: make(chan string),
+		Display_map_started: false,
 	}
 	client.Url = client.Server + "/api/" + client.Mode
 	return
@@ -97,7 +104,9 @@ func (c *Client) post(uri string, values url.Values, seconds int) error {
 		return err
 	}
 
-	c.Display_map_chan <- c.State.Game.Board.Tiles
+	if c.Display_map_started {
+		c.Display_map_chan <- c.State.Game.Board.Tiles
+	}
 
 	if c.Debug {
 		fmt.Printf("Setting data to:\n%s\n", string(data))
@@ -127,14 +136,19 @@ func (c *Client) Start() error {
 	}
 
 	fmt.Println("Connecting and waiting for other players to join...")
-	return c.post(c.Url, values, StartTimeout)
+	err := c.post(c.Url, values, StartTimeout)
+	if !c.Display_map_started {
+		go display_map(c.Display_map_chan, c.State.Game.Board.Size)
+		c.Display_map_started = true
+	}
+	return err
 }
 
 func (c *Client) Play() error {
 	fmt.Printf("Playing at: %s\n", c.State.ViewUrl)
 	move := 1
 	for c.State.Game.Finished == false {
-		fmt.Printf("\rMaking move: %d", move)
+		fmt.Printf("\rMaking move: %d\n", move)
 
 		if c.Debug {
 			fmt.Printf("\nclient: %+v\n", c)

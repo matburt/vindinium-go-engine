@@ -1,7 +1,6 @@
 package vindinium
 
 import (
-	"reflect"
 	"strconv"
 )
 
@@ -63,6 +62,7 @@ func (board *Board) parseTile(tile string) interface{} {
 	default:
 		return -3
 	}
+	return -3
 }
 
 func (board *Board) parseTiles() {
@@ -91,8 +91,35 @@ func (board *Board) parseTiles() {
 }
 
 func (board *Board) Passable(loc Position) bool {
+	if loc.X>=board.Size || loc.Y>=board.Size {
+		return false
+	}
 	tile := board.Tileset[loc.X][loc.Y]
-	return tile != WALL && tile != TAVERN && reflect.TypeOf(tile).String() != "MineTile"
+	return tile != WALL && tile != TAVERN && ! board.IsMine(board.Tile(loc))
+}
+
+func (board *Board) IsTavern(tile interface{}) bool {
+	if tile == TAVERN {
+		return true
+	}
+	return false
+}
+
+func (board *Board) IsMine(tile interface{}) bool {
+	_, ok := tile.(*MineTile)
+	return ok
+}
+
+func (board *Board) IsHero(tile interface{}) bool {
+	_, ok := tile.(*HeroTile)
+	return ok	
+}
+
+func (board *Board) Tile(pos Position) interface{} {
+	if pos.X >= board.Size || pos.Y >= board.Size {
+		return nil
+	}
+	return board.Tileset[pos.X][pos.Y]
 }
 
 func (board *Board) To(loc Position, direction Direction) *Position {

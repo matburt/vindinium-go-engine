@@ -1,7 +1,8 @@
 package vindinium
 
 import (
-	"reflect"
+	"errors"
+	"math"
 	"strconv"
 )
 
@@ -38,6 +39,13 @@ type Position struct {
 	X, Y int
 }
 
+func NewPosition(x, y int) Position {
+	var pos Position
+	pos.X = x
+	pos.Y = y
+	return pos
+}
+
 func tileToInt(tiles string, index int) int {
 	tile := []rune(tiles)[index]
 	str, _ := strconv.Atoi(string(tile))
@@ -63,6 +71,7 @@ func (board *Board) parseTile(tile string) interface{} {
 	default:
 		return -3
 	}
+	return -3
 }
 
 func (board *Board) parseTiles() {
@@ -91,8 +100,122 @@ func (board *Board) parseTiles() {
 }
 
 func (board *Board) Passable(loc Position) bool {
+	if loc.X>=board.Size || loc.Y>=board.Size {
+		return false
+	}
 	tile := board.Tileset[loc.X][loc.Y]
-	return tile != WALL && tile != TAVERN && reflect.TypeOf(tile).String() != "MineTile"
+	return tile != WALL && tile != TAVERN && ! board.IsMine(board.Tile(loc))
+}
+
+func (board *Board) IsTavern(tile interface{}) bool {
+	if tile == TAVERN {
+		return true
+	}
+	return false
+}
+
+func (board *Board) IsMine(tile interface{}) bool {
+	_, ok := tile.(*MineTile)
+	return ok
+}
+
+func (board *Board) IsHero(tile interface{}) bool {
+	_, ok := tile.(*HeroTile)
+	return ok	
+}
+
+func (board *Board) Tile(pos Position) interface{} {
+	if pos.X >= board.Size || pos.Y >= board.Size {
+		return nil
+	}
+	return board.Tileset[pos.X][pos.Y]
+}
+
+func (board *Board) GetDirection(startLoc Position, endLoc Position) Direction {
+        if startLoc.X < endLoc.X {
+                return "South"
+        }
+        if startLoc.X > endLoc.X {
+                return "North"
+        }
+        if startLoc.Y < endLoc.Y {
+                return "East"
+        }
+        if startLoc.Y > endLoc.Y {
+                return "West"
+        }
+	//if the two locations are the same, then stay
+        return "Stay"
+}
+
+func (board *Board) ManhattanDistance(a Position, b Position) int {
+	return int(math.Abs(float64(a.X-b.X)) + math.Abs(float64(a.Y-b.Y)))
+}
+
+func (board *Board) Neighbors(pos Position) []Position {
+	neighbors := make([]Position, 4, 4)
+	count:=0
+	addNeighbor := func(n Position){
+		if count>len(neighbors){
+			neighbors=neighbors[:count]
+		}
+		neighbors[count]=n
+		count++
+	}
+	if n := NewPosition(pos.X-1, pos.Y); pos.X > 0  {
+		addNeighbor(n)
+	}
+	if n := NewPosition(pos.X, pos.Y-1); pos.Y > 0  {
+		addNeighbor(n)
+	}
+	if n := NewPosition(pos.X+1, pos.Y); pos.X < board.Size  {
+		addNeighbor(n)
+	}
+	if n := NewPosition(pos.X, pos.Y+1); pos.Y < board.Size  {
+		addNeighbor(n)
+	}
+	if count==4{
+		return neighbors
+	}
+	return neighbors[:count]
+}
+
+//Find the shortest path between A and B
+func (board *Board) ShortestPath(start Position, end Position) (p Set, e error) {
+	closedSet := NewSet()
+	openSet := NewSet()
+	openSet.Append(start)
+	cameFrom := NewPath()
+	scores := NewScores()
+	scores.gScore[start] = 0
+	scores.fScore[start] = board.ManhattanDistance(start, end)
+	for openSet.count > 0 {
+		current := scores.LowestF(openSet)
+		if current.X == end.X && current.Y == end.Y  {
+			returnPath := cameFrom.reconstructed(end)
+			return *returnPath, nil
+		}
+		openSet.Remove(current)
+		closedSet.Append(current)
+		for _,n := range board.Neighbors(current) {
+			if closedSet.Find(n) {
+				continue
+			}
+			if !(n.X==end.X && n.Y==end.Y) && !board.Passable(n){
+				continue
+			}
+			gScore := scores.gScore[current] + 1
+			if !openSet.Find(n) || gScore < scores.gScore[n] {
+				cameFrom.Steps[n] = current
+				scores.gScore[n] = gScore
+				scores.fScore[n] = gScore + board.ManhattanDistance(n, end)
+				if !openSet.Find(n) {
+					openSet.Append(n)
+				}
+			}
+		}
+	}
+	return *new(Set), errors.New("Failed to find path")
 }
 
 func (board *Board) To(loc Position, direction Direction) *Position {
